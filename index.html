@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cannon Defense - Destroy the Tanks!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            z-index: 100;
+        }
+        
+        #wallHealth {
+            margin-bottom: 20px;
+        }
+        
+        .health-bar {
+            width: 300px;
+            height: 30px;
+            border: 2px solid white;
+            background: #333;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #ffff00);
+            width: 100%;
+            transition: width 0.2s;
+        }
+        
+        #stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 16px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 40px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            display: none;
+            z-index: 200;
+        }
+        
+        #gameOver h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        #gameOver button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        #gameOver button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="wallHealth">
+            <div>Wall Health</div>
+            <div class="health-bar">
+                <div class="health-fill" id="healthFill"></div>
+            </div>
+            <div id="healthText">100/100</div>
+        </div>
+    </div>
+    
+    <div id="stats">
+        <div>Tanks Destroyed: <span id="tanksDestroyed">0</span></div>
+        <div>Tanks Remaining: <span id="tanksRemaining">0</span></div>
+        <div>Wave: <span id="wave">1</span></div>
+    </div>
+    
+    <div id="controls">
+        <div><strong>Controls:</strong></div>
+        <div>Mouse: Aim Cannon</div>
+        <div>Left Click: Fire</div>
+        <div>WASD or Arrow Keys: Move</div>
+    </div>
+    
+    <div id="gameOver">
+        <h1 id="gameOverTitle">Game Over!</h1>
+        <p id="gameOverText"></p>
+        <button onclick="location.reload()">Play Again</button>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
