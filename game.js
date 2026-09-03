@@ -4,8 +4,8 @@ scene.background = new THREE.Color(0x87CEEB);
 scene.fog = new THREE.Fog(0x87CEEB, 500, 1000);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 15, 30);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 15, -25);
+camera.lookAt(0, 5, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -51,28 +51,53 @@ let tanks = [];
 let projectiles = [];
 let cannonProjectile = null;
 
+// Input
+const keys = {
+    w: false,
+    a: false,
+    s: false,
+    d: false
+};
+
+document.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === 'w') keys.w = true;
+    if (key === 'a') keys.a = true;
+    if (key === 's') keys.s = true;
+    if (key === 'd') keys.d = true;
+});
+
+document.addEventListener('keyup', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === 'w') keys.w = false;
+    if (key === 'a') keys.a = false;
+    if (key === 's') keys.s = false;
+    if (key === 'd') keys.d = false;
+});
+
 // Wall
 class Wall {
     constructor() {
         this.health = 100;
         this.maxHealth = 100;
         this.bricks = [];
+        this.position = new THREE.Vector3(0, 0, -30);
         this.createWall();
     }
     
     createWall() {
         const brickWidth = 2;
         const brickHeight = 2;
-        const brickDepth = 1;
-        const wallWidth = 20;
-        const wallHeight = 12;
+        const brickDepth = 2;
+        const wallWidth = 24;
+        const wallHeight = 14;
         
         for (let x = 0; x < wallWidth; x += brickWidth) {
             for (let y = 0; y < wallHeight; y += brickHeight) {
                 const geometry = new THREE.BoxGeometry(brickWidth, brickHeight, brickDepth);
                 const material = new THREE.MeshPhongMaterial({ color: 0xA0522D });
                 const brick = new THREE.Mesh(geometry, material);
-                brick.position.set(x - wallWidth/2, y + 1, -30);
+                brick.position.set(x - wallWidth/2, y + 1, this.position.z);
                 brick.castShadow = true;
                 brick.receiveShadow = true;
                 brick.active = true;
@@ -88,55 +113,65 @@ class Wall {
         updateWallHealthBar();
         
         if (this.health <= 0) {
-            endGame('WALL DESTROYED!', 'Game Over');
+            endGame('WALL DESTROYED!', 'The tanks breached the wall!');
         }
-    }
-    
-    update() {
-        // Bricks can be destroyed individually
     }
 }
 
 const wall = new Wall();
 
-// Cannon
+// Cannon - First Person
 class Cannon {
     constructor() {
-        this.group = new THREE.Group();
-        this.position = new THREE.Vector3(0, 2, 0);
-        this.group.position.copy(this.position);
+        this.position = new THREE.Vector3(0, 15, -24);
+        this.moveSpeed = 30;
         
-        // Base
-        const baseGeometry = new THREE.CylinderGeometry(3, 3, 1, 32);
-        const baseMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
-        const base = new THREE.Mesh(baseGeometry, baseMaterial);
-        base.castShadow = true;
-        base.receiveShadow = true;
-        this.group.add(base);
+        // Create barrel group for aiming
+        this.barrelGroup = new THREE.Group();
         
         // Barrel
-        const barrelGeometry = new THREE.CylinderGeometry(0.5, 0.5, 8, 32);
+        const barrelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 6, 32);
         const barrelMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
         this.barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
-        this.barrel.position.z = 4;
+        this.barrel.position.z = 3;
         this.barrel.castShadow = true;
         this.barrel.receiveShadow = true;
-        this.barrel.rotationPivot = new THREE.Vector3(0, 0, 0);
-        this.group.add(this.barrel);
+        this.barrelGroup.add(this.barrel);
         
-        // Turret
-        const turretGeometry = new THREE.CylinderGeometry(1.5, 1.5, 1.5, 32);
-        const turretMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
-        const turret = new THREE.Mesh(turretGeometry, turretMaterial);
-        turret.position.y = 0.5;
-        turret.castShadow = true;
-        turret.receiveShadow = true;
-        this.group.add(turret);
+        // Muzzle flash light
+        this.muzzleLight = new THREE.PointLight(0xFFFF00, 0, 30);
+        this.muzzleLight.position.set(0, 0, 6);
+        this.barrelGroup.add(this.muzzleLight);
         
-        scene.add(this.group);
+        scene.add(this.barrelGroup);
         
         this.horizontalAngle = 0;
-        this.verticalAngle = Math.PI / 4;
+        this.verticalAngle = 0;
+    }
+    
+    update(deltaTime) {
+        // Movement
+        const moveVector = new THREE.Vector3();
+        
+        if (keys.w) moveVector.z -= this.moveSpeed * deltaTime;
+        if (keys.s) moveVector.z += this.moveSpeed * deltaTime;
+        if (keys.a) moveVector.x -= this.moveSpeed * deltaTime;
+        if (keys.d) moveVector.x += this.moveSpeed * deltaTime;
+        
+        this.position.add(moveVector);
+        
+        // Clamp position to stay near wall
+        this.position.x = Math.max(-20, Math.min(20, this.position.x));
+        this.position.z = Math.max(-28, Math.min(-20, this.position.z));
+        
+        // Update camera and barrel position
+        camera.position.copy(this.position);
+        this.barrelGroup.position.copy(this.position);
+        
+        // Apply rotation to barrel
+        this.barrelGroup.rotation.order = 'YXZ';
+        this.barrelGroup.rotation.y = this.horizontalAngle;
+        this.barrelGroup.rotation.x = this.verticalAngle;
     }
     
     aim(mouseX, mouseY) {
@@ -144,26 +179,26 @@ class Cannon {
         const x = (mouseX / window.innerWidth) * 2 - 1;
         const y = -(mouseY / window.innerHeight) * 2 + 1;
         
-        this.horizontalAngle = x * Math.PI / 2;
-        this.verticalAngle = Math.max(0, Math.min(Math.PI / 2, Math.PI / 4 + y * 0.5));
-        
-        // Rotate barrel
-        this.barrel.rotation.x = -this.verticalAngle;
-        this.group.rotation.y = this.horizontalAngle;
+        this.horizontalAngle = x * Math.PI / 2.5;
+        this.verticalAngle = Math.max(-Math.PI / 6, Math.min(Math.PI / 3, y * Math.PI / 3));
     }
     
     fire() {
         if (gameState.cannonCooldown > 0) return;
         
-        const startPos = new THREE.Vector3(0, 2, 0);
-        const direction = new THREE.Vector3(
-            Math.sin(this.horizontalAngle) * Math.cos(this.verticalAngle),
-            Math.sin(this.verticalAngle),
-            Math.cos(this.horizontalAngle) * Math.cos(this.verticalAngle)
-        );
+        const startPos = this.position.clone();
+        startPos.z += 6; // Muzzle position
         
-        cannonProjectile = new Projectile(startPos.clone(), direction.clone(), 60);
-        gameState.cannonCooldown = 0.3; // 0.3 second cooldown
+        const direction = new THREE.Vector3(0, 0, 1);
+        direction.applyAxisAngle(new THREE.Vector3(1, 0, 0), this.verticalAngle);
+        direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.horizontalAngle);
+        
+        cannonProjectile = new Projectile(startPos, direction, 80);
+        gameState.cannonCooldown = 0.2;
+        
+        // Muzzle flash
+        this.muzzleLight.intensity = 2;
+        setTimeout(() => { this.muzzleLight.intensity = 0; }, 50);
     }
 }
 
@@ -174,12 +209,12 @@ class Tank {
     constructor(laneIndex) {
         this.group = new THREE.Group();
         this.laneIndex = laneIndex;
-        this.position = new THREE.Vector3(-80, 0, -50 + laneIndex * 15);
+        this.position = new THREE.Vector3(-80, 0, -30 + laneIndex * 10);
         this.group.position.copy(this.position);
-        this.velocity = new THREE.Vector3(20, 0, 0); // Moving towards wall
+        this.velocity = new THREE.Vector3(25, 0, 0);
         this.health = 1;
         this.maxHealth = 1;
-        this.fireRate = 2; // seconds
+        this.fireRate = 2;
         this.fireCountdown = Math.random() * this.fireRate;
         this.distanceToWall = 200;
         
@@ -226,13 +261,11 @@ class Tank {
     }
     
     update(deltaTime) {
-        // Move towards wall
         this.group.position.add(this.velocity.clone().multiplyScalar(deltaTime));
         this.distanceToWall = Math.abs(this.group.position.x - (-10));
         
-        // Fire when close enough
         this.fireCountdown -= deltaTime;
-        if (this.distanceToWall < 30 && this.fireCountdown <= 0) {
+        if (this.distanceToWall < 35 && this.fireCountdown <= 0) {
             this.fire();
             this.fireCountdown = this.fireRate;
         }
@@ -241,7 +274,7 @@ class Tank {
     fire() {
         const direction = new THREE.Vector3(-1, 0, 0);
         const startPos = this.group.position.clone().add(new THREE.Vector3(0, 2, 0));
-        projectiles.push(new Projectile(startPos, direction, 30, true));
+        projectiles.push(new Projectile(startPos, direction, 40, true));
     }
     
     takeDamage(amount) {
@@ -259,7 +292,7 @@ class Tank {
     }
 }
 
-// Projectile (both cannon and tank)
+// Projectile
 class Projectile {
     constructor(position, direction, speed, isTankFire = false) {
         this.position = position.clone();
@@ -276,9 +309,6 @@ class Projectile {
         this.mesh.castShadow = true;
         this.mesh.position.copy(this.position);
         scene.add(this.mesh);
-        
-        // Trail
-        this.trailPoints = [this.position.clone()];
     }
     
     update(deltaTime) {
@@ -287,10 +317,7 @@ class Projectile {
         this.mesh.position.copy(this.position);
         
         this.lifetime -= deltaTime;
-        this.trailPoints.push(this.position.clone());
-        if (this.trailPoints.length > 20) this.trailPoints.shift();
         
-        // Check collisions
         this.checkCollisions();
         
         return this.lifetime > 0;
@@ -298,21 +325,18 @@ class Projectile {
     
     checkCollisions() {
         if (this.isTankFire) {
-            // Tank projectile hitting wall
             if (this.position.x > -15 && this.position.x < -5) {
                 wall.takeDamage(20);
                 this.lifetime = -1;
             }
         } else {
-            // Cannon projectile hitting tanks
             for (let tank of tanks) {
                 const distance = this.position.distanceTo(tank.group.position);
                 if (distance < 4) {
                     tank.takeDamage(1);
                     
-                    // Knock tank far away
                     const knockbackDirection = tank.group.position.clone().sub(this.position).normalize();
-                    tank.velocity = knockbackDirection.multiplyScalar(100);
+                    tank.velocity = knockbackDirection.multiplyScalar(120);
                     
                     this.lifetime = -1;
                     break;
@@ -326,7 +350,6 @@ class Projectile {
     }
 }
 
-// Spawn waves
 function spawnWave(waveNumber) {
     const tankCount = 2 + waveNumber;
     for (let i = 0; i < tankCount; i++) {
@@ -390,7 +413,9 @@ function animate() {
         return;
     }
     
-    // Update cannon cooldown
+    // Update cannon
+    cannon.update(deltaTime);
+    
     if (gameState.cannonCooldown > 0) {
         gameState.cannonCooldown -= deltaTime;
     }
@@ -427,10 +452,7 @@ function animate() {
         spawnWave(gameState.wave);
     }
     
-    // Check win condition
-    if (gameState.wallHealth > 0) {
-        updateWallHealthBar();
-    }
+    updateWallHealthBar();
     
     renderer.render(scene, camera);
 }
